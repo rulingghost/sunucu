@@ -1,0 +1,22 @@
+{
+  "cleanUrls": true,
+  "rewrites": [
+    { "source": "/panel/:path*", "destination": "/panel.html" },
+    { "source": "/panel", "destination": "/panel.html" },
+    { "source": "/yonetici/:path*", "destination": "/yonetici.html" },
+    { "source": "/yonetici", "destination": "/yonetici.html" },
+    { "source": "/login", "destination": "/login.html" },
+    { "source": "/register", "destination": "/login.html" },
+    { "source": "/sanal-sunucu", "destination": "/sanal-sunucu.html" },
+    { "source": "/extreme-sunucu", "destination": "/extreme-sunucu.html" },
+    { "source": "/fiziksel-sunucu", "destination": "/fiziksel-sunucu.html" },
+    { "source": "/ekran-kartli-sunucu", "destination": "/ekran-kartli-sunucu.html" },
+    { "source": "/veri-merkezleri", "destination": "/veri-merkezleri.html" },
+    { "source": "/hakkimizda", "destination": "/hakkimizda.html" },
+    { "source": "/iletisim", "destination": "/iletisim.html" },
+    { "source": "/hizmet-sozlesmesi", "destination": "/hizmet-sozlesmesi.html" },
+    { "source": "/gizlilik-politikasi", "destination": "/gizlilik-politikasi.html" },
+    { "source": "/kvkk-aydinlatma-metni", "destination": "/kvkk-aydinlatma-metni.html" },
+    { "source": "/cerez-politikasi", "destination": "/cerez-politikasi.html" }
+  ]
+}
