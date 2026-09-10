@@ -1,0 +1,10 @@
+User-agent: *
+Allow: /
+Disallow: /panel
+Disallow: /panel/*
+Disallow: /yonetici
+Disallow: /yonetici/*
+Disallow: /login
+Disallow: /register
+
+Sitemap: https://novaqservers.com/sitemap.xml
