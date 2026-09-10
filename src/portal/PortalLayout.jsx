@@ -13,10 +13,11 @@ import {
   ExternalLink,
   Wallet,
   ShoppingCart,
-  Globe
+  Globe,
+  Database,
+  UploadCloud
 } from 'lucide-react';
-
-import { isSupabaseConfigured } from '../lib/supabaseClient';
+import { vercelDbService } from '../services/vercelDbService';
 
 export default function PortalLayout({ 
   currentTab, 
@@ -174,17 +175,24 @@ export default function PortalLayout({
               <span>Ana Web Sitesi</span>
             </button>
 
-            {/* Supabase Status Indicator */}
-            {isSupabaseConfigured ? (
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', fontSize: '0.8rem', color: 'var(--accent-cyan)', background: 'rgba(0,210,255,0.08)', border: '1px solid rgba(0,210,255,0.25)', padding: '0.35rem 0.75rem', borderRadius: '8px' }}>
-                <span className="pulse-online"></span>
-                <span>Supabase Canlı</span>
-              </div>
-            ) : (
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', fontSize: '0.8rem', color: '#f59e0b', background: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.25)', padding: '0.35rem 0.75rem', borderRadius: '8px' }} title=".env dosyasına Supabase URL ve Key girildiğinde canlı veritabanına bağlanır">
-                <span>⚡ Supabase Hazır (Demo Modu)</span>
-              </div>
-            )}
+            {/* Vercel Postgres & Blob Status Indicator */}
+            <div 
+              style={{ 
+                display: 'flex', 
+                alignItems: 'center', 
+                gap: '0.45rem', 
+                fontSize: '0.8rem', 
+                color: 'var(--accent-cyan)', 
+                background: 'rgba(0,210,255,0.08)', 
+                border: '1px solid rgba(0,210,255,0.25)', 
+                padding: '0.35rem 0.75rem', 
+                borderRadius: '8px' 
+              }}
+              title="Vercel Postgres (Neon) veritabanı ve Vercel Blob depolama aktif"
+            >
+              <Database size={13} color="var(--accent-cyan)" />
+              <span>Vercel Postgres & Blob: Canlı</span>
+            </div>
 
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.8rem', color: '#10b981', background: 'rgba(16,185,129,0.1)', padding: '0.35rem 0.75rem', borderRadius: '8px' }}>
               <span className="pulse-online"></span>

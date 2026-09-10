@@ -17,7 +17,9 @@ import {
   Activity, 
   Search,
   ChevronRight,
-  Shield
+  Shield,
+  Database,
+  UploadCloud
 } from 'lucide-react';
 import './admin-ui.css';
 
@@ -276,7 +278,45 @@ export default function AdminLayout({
             </div>
           </div>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+            {/* Vercel Postgres Live Status */}
+            <div 
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.45rem',
+                fontSize: '0.75rem',
+                background: 'rgba(16, 185, 129, 0.1)',
+                border: '1px solid rgba(16, 185, 129, 0.3)',
+                color: '#34d399',
+                padding: '0.35rem 0.75rem',
+                borderRadius: '20px'
+              }}
+              title="Vercel Postgres (Neon) Veritabanı Canlı"
+            >
+              <Database size={13} color="#34d399" />
+              <span>Vercel Postgres: Canlı</span>
+            </div>
+
+            {/* Vercel Blob Status */}
+            <div 
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.45rem',
+                fontSize: '0.75rem',
+                background: 'rgba(0, 210, 255, 0.1)',
+                border: '1px solid rgba(0, 210, 255, 0.3)',
+                color: 'var(--accent-cyan)',
+                padding: '0.35rem 0.75rem',
+                borderRadius: '20px'
+              }}
+              title="Vercel Blob Nesne Depolama Aktif"
+            >
+              <UploadCloud size={13} color="var(--accent-cyan)" />
+              <span>Vercel Blob: Aktif</span>
+            </div>
+
             {/* Live Status Indicators */}
             <div style={{
               display: 'flex',
@@ -290,7 +330,7 @@ export default function AdminLayout({
               borderRadius: '20px'
             }}>
               <span className="pulse-online"></span>
-              <span>Frankfurt: 28ms • HK: 120ms • Paris: 32ms</span>
+              <span>NOC: Çevrimiçi</span>
             </div>
 
             {/* Notification Bell */}

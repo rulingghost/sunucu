@@ -3,9 +3,64 @@ import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import tailwindcss from '@tailwindcss/vite';
 
+function vercelApiDevPlugin() {
+  return {
+    name: 'vercel-api-dev-middleware',
+    configureServer(server) {
+      server.middlewares.use(async (req, res, next) => {
+        if (!req.url.startsWith('/api/')) {
+          return next();
+        }
+
+        try {
+          const urlObj = new URL(req.url, 'http://localhost');
+          const pathname = urlObj.pathname;
+          const route = pathname.replace(/^\/api\//, '').split('?')[0];
+          const filePath = resolve(import.meta.dirname, `api/${route}.js`);
+
+          req.query = Object.fromEntries(urlObj.searchParams.entries());
+
+          res.status = (code) => {
+            res.statusCode = code;
+            return res;
+          };
+          res.json = (data) => {
+            res.setHeader('Content-Type', 'application/json; charset=utf-8');
+            res.end(JSON.stringify(data));
+            return res;
+          };
+
+          if (['POST', 'PUT', 'PATCH', 'DELETE'].includes(req.method)) {
+            const buffers = [];
+            for await (const chunk of req) {
+              buffers.push(chunk);
+            }
+            const rawBody = Buffer.concat(buffers).toString();
+            try {
+              req.body = rawBody ? JSON.parse(rawBody) : {};
+            } catch {
+              req.body = rawBody;
+            }
+          }
+
+          const module = await import(`${filePath}?t=${Date.now()}`);
+          if (module.default && typeof module.default === 'function') {
+            await module.default(req, res);
+          } else {
+            res.status(404).json({ error: `API route handler not found for ${route}` });
+          }
+        } catch (err) {
+          console.error('[Vite Dev API Error]', err);
+          res.status(500).json({ error: err.message });
+        }
+      });
+    }
+  };
+}
+
 // https://vite.dev/config/
 export default defineConfig({
-  plugins: [react(), tailwindcss()],
+  plugins: [react(), tailwindcss(), vercelApiDevPlugin()],
   build: {
     rollupOptions: {
       input: {

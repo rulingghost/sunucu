@@ -14,9 +14,12 @@ import {
   Eye,
   ChevronRight,
   Activity,
-  AlertCircle
+  AlertCircle,
+  Database,
+  UploadCloud
 } from 'lucide-react';
 import { adminDataService } from '../services/adminDataService.js';
+import { vercelDbService } from '../services/vercelDbService.js';
 import './admin-dashboard.css';
 
 function orderBadgeClass(status) {
@@ -34,6 +37,7 @@ function ticketBadgeClass(status) {
 export default function AdminDashboard({ navigate }) {
   const [metrics, setMetrics] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [syncing, setSyncing] = useState(false);
 
   const loadData = () => {
     setLoading(true);
@@ -108,6 +112,95 @@ export default function AdminDashboard({ navigate }) {
           <button type="button" className="ad-dash-btn ad-dash-btn-primary" onClick={() => navigate('/yonetici/urunler/yeni')}>
             <Server size={16} />
             Yeni Paket Ekle
+          </button>
+        </div>
+      </div>
+
+      {/* Vercel Postgres & Blob Bulut Durumu ve Yönetim Kartı */}
+      <div style={{
+        background: 'linear-gradient(135deg, rgba(14, 25, 48, 0.7) 0%, rgba(10, 16, 30, 0.85) 100%)',
+        border: '1px solid rgba(0, 210, 255, 0.25)',
+        borderRadius: '16px',
+        padding: '1.25rem 1.5rem',
+        marginBottom: '1.5rem',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        flexWrap: 'wrap',
+        gap: '1rem'
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+          <div style={{
+            width: '42px',
+            height: '42px',
+            borderRadius: '12px',
+            background: 'rgba(0, 210, 255, 0.12)',
+            border: '1px solid rgba(0, 210, 255, 0.3)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            color: 'var(--accent-cyan)'
+          }}>
+            <Database size={22} />
+          </div>
+          <div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+              <h3 style={{ fontSize: '1rem', fontWeight: 700, margin: 0, color: '#ffffff' }}>
+                Vercel Postgres & Blob Veritabanı Altyapısı
+              </h3>
+              <span style={{
+                fontSize: '0.7rem',
+                fontWeight: 700,
+                background: 'rgba(16, 185, 129, 0.15)',
+                color: '#34d399',
+                border: '1px solid rgba(16, 185, 129, 0.3)',
+                padding: '0.15rem 0.5rem',
+                borderRadius: '12px'
+              }}>
+                ● Canlı Veritabanı Modu
+              </span>
+            </div>
+            <p style={{ fontSize: '0.78rem', color: '#94a3b8', margin: '0.25rem 0 0' }}>
+              Müşteriler, sunucular, siparişler ve biletler doğrudan Vercel Postgres'e kaydedilir; dekont ve ekler Vercel Blob üzerinde barındırılır.
+            </p>
+          </div>
+        </div>
+
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+          <button
+            type="button"
+            className="btn btn-secondary btn-sm"
+            onClick={async () => {
+              setSyncing(true);
+              await adminDataService.syncFromDatabase();
+              loadData();
+              setSyncing(false);
+              alert('Vercel Postgres verileriyle başarıyla senkronize edildi.');
+            }}
+            disabled={syncing}
+            style={{ fontSize: '0.78rem', padding: '0.45rem 0.85rem' }}
+          >
+            <RefreshCw size={14} className={syncing ? 'ad-dash-spin' : ''} />
+            <span>{syncing ? 'Senkronize Ediliyor...' : 'Şimdi Eşitle (Sync)'}</span>
+          </button>
+
+          <button
+            type="button"
+            className="btn btn-secondary btn-sm"
+            onClick={async () => {
+              if (window.confirm('Veritabanını başlangıç verileriyle yeniden tohumlamak istiyor musunuz?')) {
+                setSyncing(true);
+                await vercelDbService.initDatabase(true);
+                await adminDataService.syncFromDatabase();
+                loadData();
+                setSyncing(false);
+                alert('Veritabanı sıfırlandı ve tohumlama verileri yüklendi.');
+              }
+            }}
+            disabled={syncing}
+            style={{ fontSize: '0.78rem', padding: '0.45rem 0.85rem', borderColor: 'rgba(245, 158, 11, 0.4)', color: '#fbbf24' }}
+          >
+            <span>Tohumla (Seed Data)</span>
           </button>
         </div>
       </div>

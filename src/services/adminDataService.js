@@ -12,6 +12,7 @@ import {
   AUDIT_LOGS 
 } from '../data/mockPortalData.js';
 import { SERVER_CATEGORIES } from '../data/serverPlans.js';
+import { vercelDbService } from './vercelDbService.js';
 
 const STORAGE_CUSTOMERS = 'novaq_admin_customers';
 const STORAGE_PRODUCTS = 'novaq_admin_products';
@@ -201,6 +202,34 @@ function writeStorage(key, data) {
     localStorage.setItem(key, JSON.stringify(data));
   } catch (e) {
     console.error(`Write error for ${key}:`, e);
+  }
+}
+
+/**
+ * Vercel Postgres'ten verileri arka planda çekip yerel önbelleğe senkronize eder.
+ */
+export async function syncFromDatabase() {
+  if (typeof window === 'undefined') return;
+  try {
+    const [cust, prod, ord, inv, pay, tick, logs] = await Promise.all([
+      vercelDbService.getCustomers().catch(() => null),
+      vercelDbService.getProducts().catch(() => null),
+      vercelDbService.getOrders().catch(() => null),
+      vercelDbService.getInvoices().catch(() => null),
+      vercelDbService.getPayments().catch(() => null),
+      vercelDbService.getTickets().catch(() => null),
+      vercelDbService.getAuditLogs().catch(() => null)
+    ]);
+
+    if (Array.isArray(cust) && cust.length > 0) writeStorage(STORAGE_CUSTOMERS, cust);
+    if (Array.isArray(prod) && prod.length > 0) writeStorage(STORAGE_PRODUCTS, prod);
+    if (Array.isArray(ord) && ord.length > 0) writeStorage(STORAGE_ORDERS, ord);
+    if (Array.isArray(inv) && inv.length > 0) writeStorage(STORAGE_INVOICES, inv);
+    if (Array.isArray(pay) && pay.length > 0) writeStorage(STORAGE_PAYMENTS, pay);
+    if (Array.isArray(tick) && tick.length > 0) writeStorage(STORAGE_TICKETS, tick);
+    if (Array.isArray(logs) && logs.length > 0) writeStorage(STORAGE_AUDIT, logs);
+  } catch (e) {
+    console.warn('[Sync DB Error]', e);
   }
 }
 
@@ -1159,5 +1188,6 @@ export const adminDataService = {
   getAdminAuditLogs,
   logAdminAction,
 
-  getDashboardMetrics
+  getDashboardMetrics,
+  syncFromDatabase
 };

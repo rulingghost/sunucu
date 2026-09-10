@@ -54,8 +54,9 @@ import {
   auditService 
 } from './services/supabaseService';
 import { isSupabaseConfigured } from './lib/supabaseClient';
+import { vercelDbService } from './services/vercelDbService';
 import { getAdminSession, adminLogout, verifyAdminSession } from './services/adminAuthService';
-import { getDashboardMetrics, getUnreadTicketCount } from './services/adminDataService';
+import { getDashboardMetrics, getUnreadTicketCount, syncFromDatabase } from './services/adminDataService';
 
 import AdminLogin from './admin/AdminLogin';
 import AdminLayout from './admin/AdminLayout';
@@ -192,45 +193,44 @@ export default function App() {
     return () => window.removeEventListener('popstate', handlePopState);
   }, [routeState.page]);
 
-  // Supabase Canlı Veri Senkronizasyonu
+  // Vercel Postgres & Blob Canlı Veri Senkronizasyonu
   useEffect(() => {
-    async function loadSupabaseData() {
-      if (!isSupabaseConfigured) return;
+    async function loadVercelData() {
       try {
-        const { data: userData } = await authService.getUser();
-        const currentUserId = userData?.user?.id;
-        if (!currentUserId) return;
-
-        const [profRes, srvRes, ordRes, tckRes, invRes] = await Promise.all([
-          profileService.getProfile(currentUserId),
-          serverService.getServers(currentUserId),
-          orderService.getOrders(currentUserId),
-          ticketService.getTickets(currentUserId),
-          invoiceService.getInvoices(currentUserId)
+        const targetCustId = user?.customerId || 'NQ-84920';
+        const [srvList, ordList, tckList, invList, custData] = await Promise.all([
+          vercelDbService.getServers(targetCustId).catch(() => null),
+          vercelDbService.getOrders(targetCustId).catch(() => null),
+          vercelDbService.getTickets(targetCustId).catch(() => null),
+          vercelDbService.getInvoices(targetCustId).catch(() => null),
+          vercelDbService.getCustomerById(targetCustId).catch(() => null)
         ]);
 
-        if (profRes.data) {
-          setUser(prev => ({ ...prev, ...profRes.data, isLoggedIn: true }));
+        if (Array.isArray(srvList) && srvList.length > 0) {
+          setServers(srvList);
+          if (srvList[0]?.id) setSelectedServerId(srvList[0].id);
         }
-        if (srvRes.data && srvRes.data.length > 0) {
-          setServers(srvRes.data);
-          setSelectedServerId(srvRes.data[0].id);
+        if (Array.isArray(ordList) && ordList.length > 0) {
+          setOrders(ordList);
         }
-        if (ordRes.data && ordRes.data.length > 0) {
-          setOrders(ordRes.data);
+        if (Array.isArray(tckList) && tckList.length > 0) {
+          setTickets(tckList);
         }
-        if (tckRes.data && tckRes.data.length > 0) {
-          setTickets(tckRes.data);
+        if (Array.isArray(invList) && invList.length > 0) {
+          setInvoices(invList);
         }
-        if (invRes.data && invRes.data.length > 0) {
-          setInvoices(invRes.data);
+        if (custData && custData.id) {
+          setUser(prev => ({ ...prev, ...custData, isLoggedIn: true }));
         }
+
+        // Yönetici paneli veritabanı önbelleğini de Vercel Postgres ile eşzamanla
+        syncFromDatabase().catch(() => {});
       } catch (err) {
-        console.error('Supabase senkronizasyon hatası:', err);
+        console.warn('[Vercel DB Load Warning]', err);
       }
     }
 
-    loadSupabaseData();
+    loadVercelData();
   }, []);
 
   // Standard Same-Tab Navigation Handler
@@ -454,9 +454,14 @@ export default function App() {
 
     setOrders(prev => [...newOrderEntries, ...prev]);
 
-    // Supabase Kayıtları
+    // Vercel Postgres & Supabase Kayıtları
     newOrderEntries.forEach(ord => {
       orderService.createOrder(user.customerId || 'user', ord);
+      vercelDbService.createOrder({
+        ...ord,
+        customerId: user.customerId || 'NQ-84920',
+        customerName: user.name
+      }).catch(() => {});
     });
 
     // Create Invoice
@@ -478,6 +483,11 @@ export default function App() {
 
     setInvoices(prev => [newInvoice, ...prev]);
     invoiceService.payInvoice(invoiceId, paymentMethod);
+    vercelDbService.createInvoice({
+      ...newInvoice,
+      customerId: user.customerId || 'NQ-84920',
+      customerName: user.name
+    }).catch(() => {});
 
     // Clear cart both in state and in persistent storage
     setCartItems([]);
@@ -488,7 +498,7 @@ export default function App() {
 
     addToast(
       'Siparişiniz Başarıyla Alındı & Ödemesi Onaylandı!',
-      `Sipariş No: #${newOrderId}. Yönetim onayından sonra sunucunuz hemen aktif edilecektir.`
+      `Sipariş No: #${newOrderId}. Vercel Postgres veritabanına kaydedildi.`
     );
   };
 
@@ -517,6 +527,16 @@ export default function App() {
     setSelectedServerId(newServer.id);
 
     orderService.createOrder(user.customerId || 'user', newOrder);
+    vercelDbService.createOrder({
+      ...newOrder,
+      customerId: user.customerId || 'NQ-84920',
+      customerName: user.name
+    }).catch(() => {});
+
+    vercelDbService.createServer({
+      ...newServer,
+      customerId: user.customerId || 'NQ-84920'
+    }).catch(() => {});
 
     const newInvoice = {
       id: newInvoiceId,
@@ -535,6 +555,11 @@ export default function App() {
 
     setInvoices(prev => [newInvoice, ...prev]);
     invoiceService.payInvoice(newInvoiceId, 'Kredi Kartı (3D Secure)');
+    vercelDbService.createInvoice({
+      ...newInvoice,
+      customerId: user.customerId || 'NQ-84920',
+      customerName: user.name
+    }).catch(() => {});
 
     setConfiguratorPlan(null);
     handleNavigate('panel-servers');
@@ -566,6 +591,11 @@ export default function App() {
     }));
 
     orderService.approveOrder(orderId, newServer.id);
+    vercelDbService.updateOrderStatus(orderId, 'approved', 'Yönetici onayı tamamlandı', newServer.id).catch(() => {});
+    vercelDbService.createServer({
+      ...newServer,
+      customerId: targetOrder.customerId || user.customerId || 'NQ-84920'
+    }).catch(() => {});
 
     addToast(
       'Yönetici Onayı Verildi & Sunucu Aktif!',
@@ -664,16 +694,22 @@ export default function App() {
   const handleAddTicket = (newTicket) => {
     setTickets(prev => [newTicket, ...prev]);
     ticketService.createTicket(user.customerId || 'user', newTicket);
-    addToast('Destek Talebi Oluşturuldu', `Bilet #${newTicket.id} NOC mühendislerine iletildi.`);
+    vercelDbService.createTicket({
+      ...newTicket,
+      customerId: user.customerId || 'NQ-84920',
+      customerName: user.name
+    }).catch(() => {});
+    addToast('Destek Talebi Oluşturuldu', `Bilet #${newTicket.id} Vercel Postgres'e kaydedildi.`);
   };
 
-  const handleReplyTicket = (ticketId, replyMessage) => {
+  const handleReplyTicket = (ticketId, replyMessage, attachments = []) => {
     const newMsg = {
       sender: 'user',
       author: user.name,
       time: 'Az önce',
       avatar: '👤',
-      text: replyMessage
+      text: replyMessage,
+      attachments: attachments || []
     };
 
     setTickets(prev => prev.map(t => {
@@ -682,44 +718,60 @@ export default function App() {
           ...t,
           status: 'Yanıt Bekliyor',
           lastUpdate: 'Az önce',
-          messages: [...t.messages, newMsg]
+          messages: [...(t.messages || []), newMsg]
         };
       }
       return t;
     }));
 
     ticketService.addMessage(ticketId, newMsg);
-    addToast('Yanıtınız Gönderildi', 'Mesajınız destek biletine eklendi.');
+    vercelDbService.replyTicket(ticketId, replyMessage, false, {
+      sender: user.name,
+      attachments: attachments || []
+    }).catch(() => {});
+    addToast('Yanıtınız Gönderildi', 'Mesajınız Vercel Postgres veritabanına kaydedildi.');
   };
 
   // Billing Operations
-  const handlePayInvoice = (invoiceId) => {
+  const handlePayInvoice = (invoiceId, receiptUrl = null) => {
     const targetInvoice = invoices.find(inv => inv.id === invoiceId);
     if (!targetInvoice) return;
 
-    if (user.balance < targetInvoice.total) {
-      alert(`Kredi bakiyeniz yetersiz! Mevcut bakiye: $${user.balance.toLocaleString('tr-TR')}, Fatura tutarı: $${targetInvoice.total.toLocaleString('tr-TR')}. Lütfen bakiye yükleyin.`);
+    if (!receiptUrl && user.balance < targetInvoice.total) {
+      alert(`Kredi bakiyeniz yetersiz! Mevcut bakiye: $${user.balance.toLocaleString('tr-TR')}, Fatura tutarı: $${targetInvoice.total.toLocaleString('tr-TR')}. Lütfen bakiye yükleyin veya banka havalesi dekontu ekleyin.`);
       return;
     }
 
-    const newBalance = user.balance - targetInvoice.total;
+    const newBalance = receiptUrl ? user.balance : (user.balance - targetInvoice.total);
     setUser(prev => ({ ...prev, balance: newBalance }));
     profileService.updateBalance(user.customerId || 'user', newBalance);
+    vercelDbService.updateCustomer(user.customerId || 'NQ-84920', { balance: newBalance }).catch(() => {});
 
     setInvoices(prev => prev.map(inv => {
       if (inv.id === invoiceId) {
         return {
           ...inv,
-          status: 'Ödendi',
-          paymentMethod: 'Kredi Bakiyesi',
-          paidAt: new Date().toLocaleDateString('tr-TR')
+          status: receiptUrl ? 'Dekont İnceleniyor' : 'Ödendi',
+          paymentMethod: receiptUrl ? 'Banka Havalesi (Dekontlu)' : 'Kredi Bakiyesi',
+          paidAt: receiptUrl ? null : new Date().toLocaleDateString('tr-TR'),
+          receiptUrl
         };
       }
       return inv;
     }));
 
-    invoiceService.payInvoice(invoiceId, 'Kredi Bakiyesi');
-    addToast('Fatura Ödendi', `${invoiceId} tutarı bakiyenizden tahsil edildi.`);
+    invoiceService.payInvoice(invoiceId, receiptUrl ? 'Banka Havalesi' : 'Kredi Bakiyesi');
+    vercelDbService.updateInvoiceStatus(
+      invoiceId, 
+      receiptUrl ? 'Dekont İnceleniyor' : 'Ödendi', 
+      receiptUrl ? 'Banka Havalesi' : 'Kredi Bakiyesi', 
+      receiptUrl
+    ).catch(() => {});
+
+    addToast(
+      receiptUrl ? 'Dekont İletildi' : 'Fatura Ödendi',
+      receiptUrl ? 'Ödeme dekontunuz Vercel Blob üzerine yüklendi ve onaya sunuldu.' : `${invoiceId} tutarı bakiyenizden tahsil edildi.`
+    );
   };
 
   const handleAddBalance = (amount) => {

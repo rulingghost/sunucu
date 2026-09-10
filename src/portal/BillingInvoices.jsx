@@ -9,14 +9,34 @@ import {
   Clock, 
   X, 
   ArrowRight,
-  ShieldCheck
+  ShieldCheck,
+  UploadCloud,
+  Paperclip
 } from 'lucide-react';
+import { vercelDbService } from '../services/vercelDbService';
 
 export default function BillingInvoices({ invoices, user, onPayInvoice, onAddBalance }) {
   const [selectedInvoice, setSelectedInvoice] = useState(null);
   const [showAddBalanceModal, setShowAddBalanceModal] = useState(false);
   const [depositAmount, setDepositAmount] = useState(50);
   const [depositMethod, setDepositMethod] = useState('card');
+  const [uploadingInvId, setUploadingInvId] = useState(null);
+
+  const handleUploadReceipt = async (invId, e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    try {
+      setUploadingInvId(invId);
+      const blob = await vercelDbService.uploadFile(file, `dekont-${invId}-${file.name}`, 'receipt');
+      onPayInvoice(invId, blob.url);
+    } catch (err) {
+      alert('Dekont yüklenirken hata oluştu: ' + err.message);
+    } finally {
+      setUploadingInvId(null);
+      e.target.value = '';
+    }
+  };
 
   const handleDepositSubmit = (e) => {
     e.preventDefault();
@@ -152,13 +172,61 @@ export default function BillingInvoices({ invoices, user, onPayInvoice, onAddBal
                       </button>
 
                       {inv.status === 'Beklemede' && (
-                        <button 
-                          className="btn btn-primary btn-sm"
-                          onClick={() => onPayInvoice(inv.id, inv.total)}
-                          style={{ fontSize: '0.75rem', padding: '0.35rem 0.75rem' }}
+                        <div style={{ display: 'flex', gap: '0.4rem' }}>
+                          <button 
+                            className="btn btn-primary btn-sm"
+                            onClick={() => onPayInvoice(inv.id, null)}
+                            style={{ fontSize: '0.75rem', padding: '0.35rem 0.65rem' }}
+                          >
+                            <span>Bakiyeden Öde</span>
+                          </button>
+                          <label
+                            className="btn btn-secondary btn-sm"
+                            style={{ 
+                              fontSize: '0.75rem', 
+                              padding: '0.35rem 0.65rem',
+                              cursor: uploadingInvId === inv.id ? 'wait' : 'pointer',
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '0.3rem',
+                              whiteSpace: 'nowrap'
+                            }}
+                            title="Vercel Blob üzerine havale dekontu yükleyin"
+                          >
+                            <UploadCloud size={12} />
+                            <span>{uploadingInvId === inv.id ? 'Yükleniyor...' : 'Dekont Yükle'}</span>
+                            <input 
+                              type="file" 
+                              style={{ display: 'none' }}
+                              accept="image/*,.pdf"
+                              disabled={uploadingInvId === inv.id}
+                              onChange={(e) => handleUploadReceipt(inv.id, e)}
+                            />
+                          </label>
+                        </div>
+                      )}
+
+                      {inv.receiptUrl && (
+                        <a
+                          href={inv.receiptUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          style={{
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '0.3rem',
+                            fontSize: '0.7rem',
+                            color: '#38bdf8',
+                            background: 'rgba(56, 189, 248, 0.12)',
+                            border: '1px solid rgba(56, 189, 248, 0.3)',
+                            padding: '0.2rem 0.5rem',
+                            borderRadius: '6px',
+                            textDecoration: 'none'
+                          }}
                         >
-                          <span>Bakiyeden Öde</span>
-                        </button>
+                          <Paperclip size={10} />
+                          <span>Dekont (Blob)</span>
+                        </a>
                       )}
                     </div>
                   </td>

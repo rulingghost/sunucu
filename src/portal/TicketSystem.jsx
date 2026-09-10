@@ -9,14 +9,18 @@ import {
   User, 
   ShieldCheck, 
   ArrowLeft,
-  X
+  X,
+  Paperclip
 } from 'lucide-react';
+import { vercelDbService } from '../services/vercelDbService';
 
 export default function TicketSystem({ tickets, servers, user, onAddTicket, onReplyTicket }) {
   const [selectedTicketId, setSelectedTicketId] = useState(tickets[0]?.id || null);
   const [filterStatus, setFilterStatus] = useState('all');
   const [showNewModal, setShowNewModal] = useState(false);
   const [replyText, setReplyText] = useState('');
+  const [uploadedAttachments, setUploadedAttachments] = useState([]);
+  const [isUploadingBlob, setIsUploadingBlob] = useState(false);
 
   // Form states for new ticket
   const [dept, setDept] = useState('Teknik Destek & Network');
@@ -34,12 +38,33 @@ export default function TicketSystem({ tickets, servers, user, onAddTicket, onRe
     return true;
   });
 
+  const handleFileUpload = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    try {
+      setIsUploadingBlob(true);
+      const blob = await vercelDbService.uploadFile(file, file.name, 'ticket');
+      setUploadedAttachments(prev => [...prev, {
+        name: file.name,
+        url: blob.url,
+        size: blob.size
+      }]);
+    } catch (err) {
+      alert('Dosya yüklenirken hata oluştu: ' + err.message);
+    } finally {
+      setIsUploadingBlob(false);
+      e.target.value = '';
+    }
+  };
+
   const handleSendReply = (e) => {
     e.preventDefault();
-    if (!replyText.trim() || !selectedTicket) return;
+    if ((!replyText.trim() && uploadedAttachments.length === 0) || !selectedTicket) return;
 
-    onReplyTicket(selectedTicket.id, replyText);
+    onReplyTicket(selectedTicket.id, replyText, uploadedAttachments);
     setReplyText('');
+    setUploadedAttachments([]);
   };
 
   const handleCreateTicket = (e) => {
@@ -232,12 +257,72 @@ export default function TicketSystem({ tickets, servers, user, onAddTicket, onRe
                   <div style={{ color: '#e2e8f0', fontSize: '0.875rem', whiteSpace: 'pre-wrap' }}>
                     {msg.text}
                   </div>
+
+                  {/* Vercel Blob Ekleri */}
+                  {msg.attachments && msg.attachments.length > 0 && (
+                    <div style={{ marginTop: '0.75rem', display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
+                      {msg.attachments.map((att, idx) => (
+                        <a 
+                          key={idx} 
+                          href={att.url} 
+                          target="_blank" 
+                          rel="noopener noreferrer"
+                          style={{
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '0.4rem',
+                            padding: '0.35rem 0.65rem',
+                            background: 'rgba(0, 210, 255, 0.12)',
+                            border: '1px solid rgba(0, 210, 255, 0.35)',
+                            borderRadius: '6px',
+                            color: '#38bdf8',
+                            fontSize: '0.75rem',
+                            textDecoration: 'none'
+                          }}
+                        >
+                          <Paperclip size={12} />
+                          <span>{att.name || 'Vercel Blob Eki'}</span>
+                        </a>
+                      ))}
+                    </div>
+                  )}
                 </div>
               ))}
             </div>
 
-            {/* Reply Input Box */}
+            {/* Reply Input Box & Vercel Blob Upload */}
             <form onSubmit={handleSendReply} style={{ marginTop: 'auto' }}>
+              {uploadedAttachments.length > 0 && (
+                <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '0.5rem', flexWrap: 'wrap' }}>
+                  {uploadedAttachments.map((att, idx) => (
+                    <div 
+                      key={idx}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '0.35rem',
+                        background: 'rgba(16, 185, 129, 0.15)',
+                        border: '1px solid rgba(16, 185, 129, 0.4)',
+                        padding: '0.25rem 0.6rem',
+                        borderRadius: '6px',
+                        fontSize: '0.75rem',
+                        color: '#34d399'
+                      }}
+                    >
+                      <Paperclip size={12} />
+                      <span>{att.name}</span>
+                      <button 
+                        type="button" 
+                        onClick={() => setUploadedAttachments(prev => prev.filter((_, i) => i !== idx))}
+                        style={{ background: 'none', border: 'none', color: '#f87171', cursor: 'pointer', padding: 0 }}
+                      >
+                        <X size={12} />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+
               <div style={{ display: 'flex', gap: '0.75rem' }}>
                 <textarea
                   rows="3"
@@ -256,14 +341,40 @@ export default function TicketSystem({ tickets, servers, user, onAddTicket, onRe
                     outline: 'none'
                   }}
                 />
-                <button 
-                  type="submit" 
-                  className="btn btn-primary"
-                  style={{ padding: '0 1.25rem', height: 'auto' }}
-                >
-                  <Send size={16} />
-                  <span>Gönder</span>
-                </button>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                  <label 
+                    className="btn btn-secondary" 
+                    style={{ 
+                      cursor: isUploadingBlob ? 'wait' : 'pointer', 
+                      fontSize: '0.75rem',
+                      padding: '0.5rem 0.75rem',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '0.35rem',
+                      whiteSpace: 'nowrap'
+                    }}
+                    title="Vercel Blob depolamasına dosya/ekran görüntüsü yükleyin"
+                  >
+                    <Paperclip size={14} />
+                    <span>{isUploadingBlob ? 'Yükleniyor...' : 'Ek Yükle'}</span>
+                    <input 
+                      type="file" 
+                      style={{ display: 'none' }} 
+                      disabled={isUploadingBlob}
+                      onChange={handleFileUpload}
+                      accept="image/*,.pdf,.txt,.log"
+                    />
+                  </label>
+
+                  <button 
+                    type="submit" 
+                    className="btn btn-primary"
+                    style={{ padding: '0.6rem 1.25rem', height: 'auto', flexGrow: 1 }}
+                  >
+                    <Send size={16} />
+                    <span>Gönder</span>
+                  </button>
+                </div>
               </div>
             </form>
           </div>

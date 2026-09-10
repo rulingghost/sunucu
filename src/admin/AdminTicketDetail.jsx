@@ -17,7 +17,8 @@ import {
   Mail,
   Building,
   Sparkles,
-  ChevronDown
+  ChevronDown,
+  Paperclip
 } from 'lucide-react';
 import { adminDataService } from '../services/adminDataService.js';
 
@@ -279,6 +280,22 @@ export default function AdminTicketDetail({ ticketId, navigate }) {
                     }`}
                   >
                     {msg.text}
+                    {msg.attachments && msg.attachments.length > 0 && (
+                      <div className="mt-2.5 pt-2.5 border-t border-gray-700/50 flex flex-wrap gap-2">
+                        {msg.attachments.map((att, i) => (
+                          <a
+                            key={i}
+                            href={att.url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-cyan-950/50 hover:bg-cyan-900/70 border border-cyan-500/30 rounded-lg text-[11px] text-cyan-300 transition-colors"
+                          >
+                            <Paperclip className="w-3 h-3" />
+                            <span>{att.name || 'Vercel Blob Dosyası'}</span>
+                          </a>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 </div>
               );
