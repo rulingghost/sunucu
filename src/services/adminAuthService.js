@@ -23,20 +23,21 @@ export async function hashPassword(password, salt = DEFAULT_CREDENTIALS.salt) {
   const encoder = new TextEncoder();
   const data = encoder.encode(password + '::novaq_salt::' + salt);
   
-  if (typeof crypto !== 'undefined' && crypto.subtle) {
-    const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+  const cryptoObj = typeof globalThis !== 'undefined' ? (globalThis.crypto || globalThis.msCrypto) : null;
+  if (cryptoObj?.subtle) {
+    const hashBuffer = await cryptoObj.subtle.digest('SHA-256', data);
     const hashArray = Array.from(new Uint8Array(hashBuffer));
     return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
   }
 
-  // Node fallback for testing environments
-  try {
-    const nodeCrypto = await import('crypto');
-    return nodeCrypto.createHash('sha256').update(password + '::novaq_salt::' + salt).digest('hex');
-  } catch (e) {
-    console.error('Crypto error:', e);
-    return '';
+  // Fallback if subtle crypto is unavailable
+  let hash = 0;
+  const str = password + '::novaq_salt::' + salt;
+  for (let i = 0; i < str.length; i++) {
+    hash = ((hash << 5) - hash) + str.charCodeAt(i);
+    hash |= 0;
   }
+  return Math.abs(hash).toString(16).padStart(64, '0');
 }
 
 // Kayıtlı Yönetici Bilgilerini Getir

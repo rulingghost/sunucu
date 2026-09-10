@@ -1,4 +1,7 @@
 {
+  "framework": "vite",
+  "buildCommand": "npm run build",
+  "outputDirectory": "dist",
   "cleanUrls": true,
   "rewrites": [
     { "source": "/panel/:path*", "destination": "/panel.html" },
@@ -18,5 +21,16 @@
     { "source": "/gizlilik-politikasi", "destination": "/gizlilik-politikasi.html" },
     { "source": "/kvkk-aydinlatma-metni", "destination": "/kvkk-aydinlatma-metni.html" },
     { "source": "/cerez-politikasi", "destination": "/cerez-politikasi.html" }
+  ],
+  "headers": [
+    {
+      "source": "/assets/(.*)",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=31536000, immutable"
+        }
+      ]
+    }
   ]
 }
